@@ -14,7 +14,14 @@ from telegram.ext import (
 BOT_TOKEN = "8097491089:AAG9iWVpS9WNxst3C6-QUJFYpRRKu61-oEw"
 XOR_KEY = "UTF-8"
 
-# === DECRYPT LOGIC ===
+# === LOCK FILE CHECK ===
+if os.path.exists("bot.lock"):
+    print("⚠️ Bot already running! Conflict detected.")
+    exit()
+else:
+    open("bot.lock", "w").close()
+
+# === DECRYPT FUNCTION ===
 def xor_decrypt(enc: str, key: str) -> str:
     try:
         decoded = base64.b64decode(enc)
@@ -66,11 +73,9 @@ def process_apk(apk_path, key):
 
     return output_apk if os.path.exists(output_apk) else None
 
-# === TELEGRAM HANDLERS ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 *THIS BOT MADE BY SATYAM*\n📩 *ANY PROBLEM? DM* @SATYM_ONLY\n\n📤 *Send your APK or DEX file to decrypt.*",
-        parse_mode="Markdown"
+        "🤖 THIS BOT MADE BY SATYAM\n📩 ANY PROBLEM? DM @SATYM_ONLY\n\n📤 Send your APK or DEX file to decrypt."
     )
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -79,9 +84,8 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_path = os.path.join(tempfile.gettempdir(), file.file_name)
         await file.get_file().download_to_drive(file_path)
 
-        await update.message.reply_text("✅ File uploaded.\n🔐 Decryption started...")
+        await update.message.reply_text("✅ File uploaded.\n🔐 Starting decryption...")
 
-        # Simulate progress
         for progress in range(10, 101, 10):
             await update.message.reply_text(f"🛠️ Decrypting... {progress}%")
             await asyncio.sleep(0.4)
@@ -93,7 +97,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if output_apk and os.path.exists(output_apk):
             await update.message.reply_document(document=open(output_apk, "rb"))
         else:
-            await update.message.reply_text("❌ Failed to decrypt or build APK.")
+            await update.message.reply_text("❌ Decryption failed or output APK not created.")
 
         os.remove(file_path)
 
@@ -102,8 +106,12 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === MAIN ===
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
-    print("✅ Decryption Bot is running...")
-    app.run_polling()
+    try:
+        app = ApplicationBuilder().token(BOT_TOKEN).build()
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
+        print("✅ Decryption Bot is running...")
+        app.run_polling()
+    finally:
+        if os.path.exists("bot.lock"):
+            os.remove("bot.lock")
